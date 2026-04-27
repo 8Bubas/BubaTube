@@ -40,7 +40,7 @@
 <script>
     let db;
     const player = document.getElementById('main-player');
-    const proxy = "https://invidious.no-logs.com"; 
+    const proxy = "https://inv.tux.rs"; 
 
     function init() {
         const firebaseConfig = {
@@ -71,16 +71,20 @@
         let q = document.getElementById('query').value;
         if (!q) return;
         const resDiv = document.getElementById('search-results');
-        resDiv.innerHTML = "<p>...</p>";
+        resDiv.innerHTML = "<p>Поиск...</p>";
         try {
-            const response = await fetch(`${proxy}/api/v1/search?q=${encodeURIComponent(q)}`);
+            const response = await fetch(proxy + "/api/v1/search?q=" + encodeURIComponent(q));
             const results = await response.json();
             resDiv.innerHTML = "";
-            results.forEach(v => {
-                if (v.type === "video") renderCard(v.videoId, v.title, resDiv, true);
-            });
+            if (results && results.length > 0) {
+                results.forEach(v => {
+                    if (v.type === "video") renderCard(v.videoId, v.title, resDiv, true);
+                });
+            } else {
+                resDiv.innerHTML = "<p>Ничего не нашли</p>";
+            }
         } catch (e) {
-            resDiv.innerHTML = "";
+            resDiv.innerHTML = "<p>Ошибка сервера</p>";
         }
     }
 
@@ -88,11 +92,11 @@
         let div = document.createElement('div');
         div.className = 'v-card';
         div.onclick = () => {
-            player.src = `${proxy}/embed/${id}?autoplay=1`;
+            player.src = proxy + "/embed/" + id + "?autoplay=1";
             if (isSearch) db.ref('tubevideos').push({ id: id, title: title });
             window.scrollTo({top: 0, behavior: 'smooth'});
         };
-        div.innerHTML = `<img src="${proxy}/vi/${id}/mqdefault.jpg"><p>${title}</p>`;
+        div.innerHTML = '<img src="' + proxy + '/vi/' + id + '/mqdefault.jpg"><p>' + title + '</p>';
         container.appendChild(div);
     }
 </script>
