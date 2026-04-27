@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>BubasTube</title>
+    <style>
+        body { background: #0a0a0a; color: #eee; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 20px; }
+        .input-group { width: 100%; max-width: 600px; display: flex; gap: 10px; margin-bottom: 20px; }
+        input { flex: 1; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; border-radius: 8px; outline: none; }
+        button { background: #cc0000; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #ff0000; }
+        .player-wrapper { width: 100%; max-width: 900px; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        iframe { width: 100%; height: 100%; border: none; }
+    </style>
+</head>
+<body>
+
+    <h1>BUBAS TUBE</h1>
+
+    <div class="input-group">
+        <input type="text" id="v_url" placeholder="Ссылку сюда...">
+        <button onclick="go()">ПУСК</button>
+    </div>
+
+    <div class="player-wrapper">
+        <iframe id="vid" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+    </div>
+
+    <script>
+        function go() {
+            let u = document.getElementById('v_url').value;
+            let id = "";
+            if (u.includes("v=")) id = u.split("v=")[1].split("&")[0];
+            else if (u.includes("youtu.be/")) id = u.split("youtu.be/")[1].split("?")[0];
+            
+            if (id) {
+                document.getElementById('vid').src = `https://www.youtube.com/embed/${id}?autoplay=1&modestbranding=1&rel=0`;
+            }
+        }
+    </script>
+</body>
+</html>
