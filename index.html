@@ -15,33 +15,24 @@
         h3 { align-self: flex-start; width: 100%; max-width: 850px; margin: 15px 0 10px 0; color: #aaa; font-size: 14px; text-transform: uppercase; }
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; width: 100%; max-width: 1000px; margin-bottom: 30px; }
         .v-card { cursor: pointer; transition: 0.2s; }
-        .v-card:hover { transform: scale(1.03); }
         .v-card img { width: 100%; border-radius: 8px; border: 1px solid #222; }
         .v-card p { font-size: 11px; margin: 5px 0; height: 30px; overflow: hidden; color: #ccc; }
     </style>
 </head>
 <body onload="init()">
-
-    <div class="p-box">
-        <iframe id="main-player" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
-    </div>
-
+    <div class="p-box"><iframe id="main-player" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe></div>
     <div class="search-zone">
         <input type="text" id="query" placeholder="Поиск...">
         <button onclick="searchVid()">НАЙТИ</button>
     </div>
-
     <h3>Результаты:</h3>
     <div id="search-results" class="grid"></div>
-
     <h3>История:</h3>
     <div id="video-grid" class="grid"></div>
-
 <script>
     let db;
     const player = document.getElementById('main-player');
-    const proxy = "https://inv.tux.rs"; 
-
+    const proxy = "https://yewtu.be"; 
     function init() {
         const firebaseConfig = {
             apiKey: "AIzaSyCMgd0KOSCfyJ0RWk3qhpk6eMOnKPhLNbA",
@@ -54,7 +45,6 @@
         };
         firebase.initializeApp(firebaseConfig);
         db = firebase.database();
-
         db.ref('tubevideos').limitToLast(20).on('value', (s) => {
             const g = document.getElementById('video-grid');
             g.innerHTML = "";
@@ -66,28 +56,22 @@
             }
         });
     }
-
     async function searchVid() {
         let q = document.getElementById('query').value;
         if (!q) return;
         const resDiv = document.getElementById('search-results');
-        resDiv.innerHTML = "<p>Поиск...</p>";
+        resDiv.innerHTML = "<p>...</p>";
         try {
             const response = await fetch(proxy + "/api/v1/search?q=" + encodeURIComponent(q));
             const results = await response.json();
             resDiv.innerHTML = "";
-            if (results && results.length > 0) {
-                results.forEach(v => {
-                    if (v.type === "video") renderCard(v.videoId, v.title, resDiv, true);
-                });
-            } else {
-                resDiv.innerHTML = "<p>Ничего не нашли</p>";
-            }
+            results.forEach(v => {
+                if (v.type === "video") renderCard(v.videoId, v.title, resDiv, true);
+            });
         } catch (e) {
-            resDiv.innerHTML = "<p>Ошибка сервера</p>";
+            resDiv.innerHTML = "<p>Ошибка</p>";
         }
     }
-
     function renderCard(id, title, container, isSearch) {
         let div = document.createElement('div');
         div.className = 'v-card';
