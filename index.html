@@ -2,38 +2,35 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>BubasTube 3.0</title>
+    <title>BubasTube</title>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
     <style>
-        body { background: #0b0b0b; color: white; font-family: sans-serif; margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
-        .p-box { width: 100%; max-width: 850px; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 15px; border: 1px solid #333; }
+        body { background: #000; color: white; font-family: sans-serif; margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
+        .p-box { width: 100%; max-width: 850px; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 20px; border: 1px solid #222; }
         iframe { width: 100%; height: 100%; border: none; }
         .search-zone { display: flex; gap: 10px; width: 100%; max-width: 850px; margin-bottom: 20px; }
-        input { flex: 1; background: #1a1a1a; border: 1px solid #444; color: white; padding: 12px; border-radius: 25px; outline: none; padding-left: 15px; }
-        button { background: #ff0000; color: white; border: none; padding: 0 20px; border-radius: 25px; cursor: pointer; font-weight: bold; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; width: 100%; max-width: 1000px; }
-        .v-card { cursor: pointer; transition: 0.2s; }
-        .v-card:hover { transform: scale(1.05); }
-        .v-card img { width: 100%; border-radius: 8px; border: 1px solid #222; }
+        input { flex: 1; background: #111; border: 1px solid #333; color: white; padding: 12px; border-radius: 25px; outline: none; }
+        button { background: #ff0000; color: white; border: none; padding: 0 25px; border-radius: 25px; cursor: pointer; font-weight: bold; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; width: 100%; max-width: 1000px; }
+        .v-card { cursor: pointer; }
+        .v-card img { width: 100%; border-radius: 8px; border: 1px solid #222; transition: 0.2s; }
+        .v-card img:hover { border-color: #ff0000; transform: scale(1.03); }
+        h3 { align-self: flex-start; width: 100%; max-width: 850px; color: #444; font-size: 12px; margin-left: auto; margin-right: auto; }
     </style>
 </head>
 <body onload="init()">
-    <div class="p-box">
-        <iframe id="main-player" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
-    </div>
+    <div class="p-box"><iframe id="main-player" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe></div>
     <div class="search-zone">
-        <input type="text" id="query" placeholder="Поиск (танки, рояль...)">
+        <input type="text" id="query" placeholder="Поиск (Clash Royale, Танки...)">
         <button onclick="handleAction()">ПУСК</button>
     </div>
-    <div id="search-results" class="grid"></div>
-    <h3 style="color:#666; font-size:12px; margin-top:30px;">ИСТОРИЯ</h3>
+    <div id="results" class="grid"></div>
+    <h3>ИСТОРИЯ</h3>
     <div id="video-grid" class="grid"></div>
-
 <script>
     let db;
     const player = document.getElementById('main-player');
-
     function init() {
         const config = {
             apiKey: "AIzaSyCMgd0KOSCfyJ0RWk3qhpk6eMOnKPhLNbA",
@@ -46,58 +43,40 @@
         };
         firebase.initializeApp(config);
         db = firebase.database();
-        db.ref('tubevideos').limitToLast(20).on('value', (s) => {
+        db.ref('tubevideos').limitToLast(12).on('value', (s) => {
             const g = document.getElementById('video-grid');
             g.innerHTML = "";
             let data = s.val();
-            if (data) Object.values(data).reverse().forEach(v => renderCard(v.id, v.title, g, false));
+            if (data) Object.values(data).reverse().forEach(v => renderCard(v.id, g, false));
         });
     }
-
     function handleAction() {
         let q = document.getElementById('query').value;
         if (!q) return;
         let id = "";
         if (q.includes("v=")) id = q.split("v=")[1].split("&")[0];
         else if (q.includes("youtu.be/")) id = q.split("youtu.be/")[1].split("?")[0];
-        
-        if (id) {
-            play(id);
-            db.ref('tubevideos').push({ id: id, title: "Видео" });
-            document.getElementById('query').value = "";
-        } else {
-            searchVid(q);
-        }
+        if (id) { play(id); db.ref('tubevideos').push({ id: id }); document.getElementById('query').value = ""; }
+        else { search(q); }
     }
-
-    async function searchVid(q) {
-        const resDiv = document.getElementById('search-results');
-        resDiv.innerHTML = "<p>...</p>";
+    async function search(q) {
+        const res = document.getElementById('results');
+        res.innerHTML = "...";
         try {
             const r = await fetch(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(q)}&filter=videos`);
             const d = await r.json();
-            resDiv.innerHTML = "";
-            d.streams.forEach(v => {
-                let vidId = v.url.split("v=")[1];
-                renderCard(vidId, v.title, resDiv, true);
-            });
-        } catch (e) {
-            resDiv.innerHTML = "";
-        }
+            res.innerHTML = "";
+            d.streams.forEach(v => { let vidId = v.url.split("v=")[1]; renderCard(vidId, res, true); });
+        } catch (e) { res.innerHTML = ""; }
     }
-
     function play(id) {
-        player.src = `https://piped.video/embed/${id}?autoplay=1`;
+        player.src = `https://www.youtube.com/embed/${id}?autoplay=1&modestbranding=1&rel=0`;
         window.scrollTo({top: 0, behavior: 'smooth'});
     }
-
-    function renderCard(id, title, container, isSearch) {
+    function renderCard(id, container, save) {
         let div = document.createElement('div');
         div.className = 'v-card';
-        div.onclick = () => {
-            play(id);
-            if (isSearch) db.ref('tubevideos').push({ id: id, title: title });
-        };
+        div.onclick = () => { play(id); if (save) db.ref('tubevideos').push({ id: id }); };
         div.innerHTML = `<img src="https://img.youtube.com/vi/${id}/mqdefault.jpg">`;
         container.appendChild(div);
     }
