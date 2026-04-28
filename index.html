@@ -9,16 +9,16 @@
         body { background: #000; color: white; font-family: sans-serif; margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; }
         .p-box { width: 100%; max-width: 850px; aspect-ratio: 16/9; background: #111; border-radius: 12px; overflow: hidden; margin-bottom: 15px; border: 1px solid #222; position: relative; }
         iframe { width: 100%; height: 100%; border: none; }
-        .shield-t { position: absolute; top: 0; left: 0; width: 40%; height: 70px; z-index: 10; }
-        .shield-b { position: absolute; bottom: 0; right: 0; width: 250px; height: 95px; z-index: 10; }
+        .shield-t { position: absolute; top: 0; left: 0; width: 45%; height: 70px; z-index: 10; }
+        .shield-b { position: absolute; bottom: 0; right: 0; width: 260px; height: 100px; z-index: 10; }
         .search-zone { display: flex; gap: 8px; width: 100%; max-width: 850px; margin-bottom: 20px; }
         input { flex: 1; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; border-radius: 20px; outline: none; }
         button { background: #ff0000; color: white; border: none; padding: 0 20px; border-radius: 20px; cursor: pointer; font-weight: bold; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; width: 100%; max-width: 850px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; width: 100%; max-width: 850px; margin-bottom: 20px; }
         .v-card { cursor: pointer; text-align: center; }
-        .v-card img { width: 100%; border-radius: 8px; border: 1px solid #333; }
-        .v-card p { font-size: 10px; color: #aaa; margin-top: 5px; height: 24px; overflow: hidden; }
-        h3 { align-self: flex-start; width: 100%; max-width: 850px; color: #444; font-size: 11px; margin: 15px auto 5px auto; text-transform: uppercase; }
+        .v-card img { width: 100%; border-radius: 8px; border: 1px solid #222; }
+        .v-card p { font-size: 10px; color: #aaa; margin: 5px 0; height: 24px; overflow: hidden; }
+        h3 { align-self: flex-start; width: 100%; max-width: 850px; color: #444; font-size: 11px; margin: 10px auto; text-transform: uppercase; }
     </style>
 </head>
 <body onload="init()">
@@ -28,19 +28,22 @@
         <iframe id="main-player" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
     </div>
     <div class="search-zone">
-        <input type="text" id="query" placeholder="Поиск или ссылка...">
-        <button onclick="handleAction()">ПУСК</button>
+        <input type="text" id="query" placeholder="Что ищем?">
+        <button onclick="handleAction()">НАЙТИ</button>
     </div>
+
     <div id="results" class="grid"></div>
-    <h3 id="rec-h" style="display:none">Похожие видео</h3>
-    <div id="recs" class="grid"></div>
-    <h3>История</h3>
+    
+    <h3 id="rec-title" style="display:none;">ПОХОЖИЕ ВИДЕО</h3>
+    <div id="recommendations" class="grid"></div>
+
+    <h3>ИСТОРИЯ</h3>
     <div id="history" class="grid"></div>
 
 <script>
     let db;
     const player = document.getElementById('main-player');
-    const api = "https://pipedapi.kavin.rocks";
+    const api = "https://invidious.lunar.icu"; // Стабильный шлюз для парсинга
 
     function init() {
         const config = {
@@ -54,7 +57,7 @@
         };
         firebase.initializeApp(config);
         db = firebase.database();
-        db.ref('tubevideos').limitToLast(5).on('value', (s) => {
+        db.ref('tubevideos').limitToLast(6).on('value', (s) => {
             const h = document.getElementById('history');
             h.innerHTML = "";
             let data = s.val();
@@ -65,9 +68,7 @@
     function handleAction() {
         let q = document.getElementById('query').value;
         if (!q) return;
-        let id = "";
-        if (q.includes("v=")) id = q.split("v=")[1].split("&")[0];
-        else if (q.includes("youtu.be/")) id = q.split("youtu.be/")[1].split("?")[0];
+        let id = (q.includes("v=")) ? q.split("v=")[1].split("&")[0] : (q.includes("youtu.be/")) ? q.split("youtu.be/")[1].split("?")[0] : "";
         if (id) { play(id, "Видео"); } else { search(q); }
     }
 
@@ -75,34 +76,27 @@
         const res = document.getElementById('results');
         res.innerHTML = "...";
         try {
-            const r = await fetch(`${api}/search?q=${encodeURIComponent(q)}&filter=videos`);
+            const r = await fetch(`${api}/api/v1/search?q=${encodeURIComponent(q)}&type=video`);
             const d = await r.json();
             res.innerHTML = "";
-            d.streams.slice(0, 5).forEach(v => {
-                let vidId = v.url.split("v=")[1];
-                renderCard(vidId, v.title, res, true);
-            });
+            d.slice(0, 5).forEach(v => renderCard(v.videoId, v.title, res, true));
         } catch (e) { res.innerHTML = "Ошибка. Вставь ссылку."; }
     }
 
     async function loadRecs(id) {
-        const rDiv = document.getElementById('recs');
-        document.getElementById('rec-h').style.display = "block";
+        const recDiv = document.getElementById('recommendations');
+        document.getElementById('rec-title').style.display = "block";
         try {
-            const r = await fetch(`${api}/streams/${id}`);
+            const r = await fetch(`${api}/api/v1/videos/${id}`);
             const d = await r.json();
-            rDiv.innerHTML = "";
-            d.relatedStreams.slice(0, 3).forEach(v => {
-                let vidId = v.url.split("v=")[1];
-                renderCard(vidId, v.title, rDiv, true);
-            });
-        } catch (e) { }
+            recDiv.innerHTML = "";
+            d.recommendedVideos.slice(0, 3).forEach(v => renderCard(v.videoId, v.title, recDiv, true));
+        } catch (e) { recDiv.innerHTML = ""; }
     }
 
     function play(id, title) {
-        player.src = `https://www.youtube.com/embed/${id}?autoplay=1&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1`;
+        player.src = `https://www.youtube.com/embed/${id}?autoplay=1&modestbranding=1&rel=0&iv_load_policy=3`;
         db.ref('tubevideos').push({ id: id, title: title });
-        document.getElementById('results').innerHTML = "";
         loadRecs(id);
         window.scrollTo({top: 0, behavior: 'smooth'});
     }
