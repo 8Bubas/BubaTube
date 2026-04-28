@@ -13,8 +13,7 @@
         input { flex: 1; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; border-radius: 20px; outline: none; }
         button { background: #ff0000; color: white; border: none; padding: 0 20px; border-radius: 20px; cursor: pointer; font-weight: bold; }
         .s-list { width: 100%; max-width: 850px; display: flex; flex-direction: column; gap: 5px; margin-bottom: 20px; }
-        .s-item { background: #111; padding: 12px; border-radius: 10px; border: 1px solid #222; cursor: pointer; font-size: 14px; color: #ccc; transition: 0.2s; }
-        .s-item:hover { border-color: #ff0000; color: white; }
+        .s-item { background: #111; padding: 12px; border-radius: 10px; border: 1px solid #222; cursor: pointer; font-size: 14px; color: #ccc; }
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; width: 100%; max-width: 850px; }
         .v-card { cursor: pointer; text-align: center; }
         .v-card img { width: 100%; border-radius: 8px; border: 1px solid #222; }
@@ -25,7 +24,7 @@
     <div class="p-box"><iframe id="main-player" src="" allowfullscreen></iframe></div>
     <div class="search-zone">
         <input type="text" id="query" placeholder="Танки, Рояль..." oninput="getTips(this.value)">
-        <button onclick="handleAction()">ПОИСК</button>
+        <button onclick="handleAction()">ПУСК</button>
     </div>
     <div id="results" class="s-list"></div>
     <h3>История</h3>
@@ -34,7 +33,8 @@
 <script>
     let db;
     const player = document.getElementById('main-player');
-    const proxyApi = "https://invidious.privacydev.net/api/v1";
+    const apiPiped = "https://pipedapi.kavin.rocks"; // Основной сервер
+    const apiAlt = "https://api.piped.victr.me";   // Запасной
 
     function init() {
         const config = {
@@ -75,12 +75,25 @@
     }
 
     async function fastPlay(q) {
-        document.getElementById('results').innerHTML = "Загрузка...";
+        document.getElementById('results').innerHTML = "Ищем...";
         try {
-            const r = await fetch(`${proxyApi}/search?q=${encodeURIComponent(q)}&type=video`);
+            const r = await fetch(`${apiPiped}/search?q=${encodeURIComponent(q)}&filter=videos`);
             const d = await r.json();
-            if (d[0]) play(d[0].videoId);
-        } catch (e) { alert("Ошибка сервера. Попробуй еще раз."); }
+            if (d.streams && d.streams[0]) {
+                const id = d.streams[0].url.split("v=")[1];
+                play(id);
+            }
+        } catch (e) {
+            // Если первый сервер упал, пробуем запасной
+            try {
+                const r = await fetch(`${apiAlt}/search?q=${encodeURIComponent(q)}&filter=videos`);
+                const d = await r.json();
+                if (d.streams && d.streams[0]) {
+                    const id = d.streams[0].url.split("v=")[1];
+                    play(id);
+                }
+            } catch (err) { alert("Сервера заняты, попробуй прямую ссылку"); }
+        }
     }
 
     function handleAction() {
@@ -90,8 +103,8 @@
     }
 
     function play(id) {
-        // Плеер без кнопок YouTube
-        player.src = `https://invidious.privacydev.net/embed/${id}?autoplay=1`;
+        // Используем Piped плеер - он без кнопок и рекламы
+        player.src = `https://piped.video/embed/${id}?autoplay=1`;
         db.ref('tubevideos').push({ id: id });
         document.getElementById('results').innerHTML = "";
     }
