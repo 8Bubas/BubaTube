@@ -12,28 +12,33 @@
         .search-zone { display: flex; gap: 8px; width: 100%; max-width: 850px; margin-bottom: 20px; }
         input { flex: 1; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; border-radius: 20px; outline: none; }
         button { background: #ff0000; color: white; border: none; padding: 0 20px; border-radius: 20px; cursor: pointer; font-weight: bold; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; width: 100%; max-width: 850px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; width: 100%; max-width: 850px; margin-bottom: 20px; }
         .v-card { cursor: pointer; text-align: center; }
-        .v-card img { width: 100%; border-radius: 8px; border: 1px solid #333; transition: 0.2s; }
-        .v-card img:hover { border-color: #ff0000; transform: scale(1.02); }
-        .v-card p { font-size: 10px; color: #aaa; margin-top: 5px; height: 24px; overflow: hidden; }
-        h3 { align-self: flex-start; width: 100%; max-width: 850px; color: #444; font-size: 12px; margin: 10px auto; }
+        .v-card img { width: 100%; border-radius: 8px; border: 1px solid #333; }
+        .v-card p { font-size: 10px; color: #aaa; margin: 5px 0; height: 24px; overflow: hidden; }
+        h3 { align-self: flex-start; width: 100%; max-width: 850px; color: #555; font-size: 12px; margin: 10px auto; text-transform: uppercase; }
     </style>
 </head>
 <body onload="init()">
     <div class="p-box"><iframe id="main-player" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe></div>
     <div class="search-zone">
-        <input type="text" id="query" placeholder="Поиск (Clash Royale, Танки...)">
+        <input type="text" id="query" placeholder="Поиск или ссылка...">
         <button onclick="handleAction()">ПУСК</button>
     </div>
+
     <div id="results" class="grid"></div>
-    <h3>НЕДАВНИЕ ПРОСМОТРЫ</h3>
+    
+    <h3 id="rec-title" style="display:none;">РЕКОМЕНДАЦИИ</h3>
+    <div id="recommendations" class="grid"></div>
+
+    <h3>ИСТОРИЯ</h3>
     <div id="history" class="grid"></div>
 
 <script>
     let db;
     const player = document.getElementById('main-player');
-    const api = "https://pipedapi.kavin.rocks";
+    const apiHosts = ["https://pipedapi.kavin.rocks", "https://api.piped.victr.me", "https://pipedapi.drgns.space"];
+    let currentHost = apiHosts[0];
 
     function init() {
         const config = {
@@ -47,7 +52,7 @@
         };
         firebase.initializeApp(config);
         db = firebase.database();
-        db.ref('tubevideos').limitToLast(5).on('value', (s) => {
+        db.ref('tubevideos').limitToLast(6).on('value', (s) => {
             const h = document.getElementById('history');
             h.innerHTML = "";
             let data = s.val();
@@ -64,7 +69,6 @@
         
         if (id) {
             play(id, "Видео по ссылке");
-            document.getElementById('query').value = "";
         } else {
             search(q);
         }
@@ -73,25 +77,45 @@
     async function search(q) {
         const res = document.getElementById('results');
         res.innerHTML = "Ищем...";
+        for (let host of apiHosts) {
+            try {
+                const r = await fetch(`${host}/search?q=${encodeURIComponent(q)}&filter=videos`);
+                const d = await r.json();
+                currentHost = host;
+                res.innerHTML = "";
+                d.streams.slice(0, 6).forEach(v => {
+                    let vidId = v.url.split("v=")[1];
+                    renderCard(vidId, v.title, res, true);
+                });
+                return;
+            } catch (e) { continue; }
+        }
+        res.innerHTML = "Поиск временно недоступен";
+    }
+
+    async function loadRecs(id) {
+        const recDiv = document.getElementById('recommendations');
+        document.getElementById('rec-title').style.display = "block";
+        recDiv.innerHTML = "...";
         try {
-            const r = await fetch(`${api}/search?q=${encodeURIComponent(q)}&filter=videos`);
+            const r = await fetch(`${currentHost}/streams/${id}`);
             const d = await r.json();
-            res.innerHTML = "";
-            // Берем только первые 5-6 штук
-            d.streams.slice(0, 6).forEach(v => {
+            recDiv.innerHTML = "";
+            d.relatedStreams.slice(0, 6).forEach(v => {
                 let vidId = v.url.split("v=")[1];
-                renderCard(vidId, v.title, res, true);
+                renderCard(vidId, v.title, recDiv, true);
             });
-        } catch (e) { res.innerHTML = "Ошибка поиска"; }
+        } catch (e) { recDiv.innerHTML = ""; }
     }
 
     function play(id, title) {
         player.src = `https://www.youtube.com/embed/${id}?autoplay=1&modestbranding=1`;
         db.ref('tubevideos').push({ id: id, title: title });
+        loadRecs(id);
         window.scrollTo({top: 0, behavior: 'smooth'});
     }
 
-    function renderCard(id, title, container, save) {
+    function renderCard(id, title, container, isNew) {
         let div = document.createElement('div');
         div.className = 'v-card';
         div.onclick = () => play(id, title);
