@@ -2,116 +2,26 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>BubasTube</title>
-    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+    <title>Картинка Тест</title>
     <style>
-        body { background: #000; color: white; font-family: sans-serif; margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; }
-        .p-box { width: 100%; max-width: 850px; aspect-ratio: 16/9; background: #111; border-radius: 12px; overflow: hidden; margin-bottom: 15px; border: 1px solid #222; }
-        iframe { width: 100%; height: 100%; border: none; }
-        .search-zone { display: flex; gap: 8px; width: 100%; max-width: 850px; margin-bottom: 20px; }
-        input { flex: 1; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; border-radius: 20px; outline: none; }
-        button { background: #ff0000; color: white; border: none; padding: 0 20px; border-radius: 20px; cursor: pointer; font-weight: bold; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; width: 100%; max-width: 850px; }
-        .v-card { cursor: pointer; text-align: center; background: #111; border-radius: 10px; padding: 5px; border: 1px solid #222; }
-        .v-card img { width: 100%; border-radius: 8px; display: block; }
-        h3 { align-self: flex-start; width: 100%; max-width: 850px; color: #444; font-size: 11px; margin: 15px auto 5px auto; text-transform: uppercase; }
+        body {
+            background-color: #000; /* Черный фон */
+            margin: 0;
+            display: flex;
+            justify-content: center; /* Центр по горизонту */
+            align-items: center;    /* Центр по вертикали */
+            height: 100vh;          /* Высота на весь экран */
+        }
+        img {
+            max-width: 90%;         /* Чтобы не вылезала за края */
+            border-radius: 15px;    /* Скруглим углы для красоты */
+            border: 2px solid #333; /* Тонкая рамка */
+        }
     </style>
 </head>
-<body onload="init()">
-    <div class="p-box"><iframe id="main-player" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe></div>
-    <div class="search-zone">
-        <input type="text" id="query" placeholder="Вставь ссылку или напиши тему (Танки, Рояль)...">
-        <button onclick="handleAction()">ПУСК</button>
-    </div>
+<body>
 
-    <h3 id="res-title" style="display:none;">РЕЗУЛЬТАТЫ ПОИСКА</h3>
-    <div id="results" class="grid"></div>
+    <img src="https://i.ytimg.com/vi/p77_v0pGf_Y/maxresdefault.jpg" alt="Test Image">
 
-    <h3>ИСТОРИЯ ПРОСМОТРОВ</h3>
-    <div id="history" class="grid"></div>
-
-<script>
-    let db;
-    const player = document.getElementById('main-player');
-
-    function init() {
-        const config = {
-            apiKey: "AIzaSyCMgd0KOSCfyJ0RWk3qhpk6eMOnKPhLNbA",
-            authDomain: "bubaschat.firebaseapp.com",
-            databaseURL: "https://bubaschat-default-rtdb.firebaseio.com",
-            projectId: "bubaschat",
-            storageBucket: "bubaschat.firebasestorage.app",
-            messagingSenderId: "360805253305",
-            appId: "1:360805253305:web:6f5ed2c212a44833e7db68"
-        };
-        firebase.initializeApp(config);
-        db = firebase.database();
-        db.ref('tubevideos').limitToLast(6).on('value', (s) => {
-            const h = document.getElementById('history');
-            h.innerHTML = "";
-            let data = s.val();
-            if (data) Object.values(data).reverse().forEach(v => renderCard(v.id, h));
-        });
-    }
-
-    function handleAction() {
-        let q = document.getElementById('query').value;
-        if (!q) return;
-        let id = (q.includes("v=")) ? q.split("v=")[1].split("&")[0] : (q.includes("youtu.be/")) ? q.split("youtu.be/")[1].split("?")[0] : "";
-        if (id) { 
-            play(id); 
-            document.getElementById('query').value = "";
-        } else { 
-            search(q); 
-        }
-    }
-
-    function search(q) {
-        const res = document.getElementById('results');
-        document.getElementById('res-title').style.display = "block";
-        res.innerHTML = "Ищем...";
-        
-        // Хитрый обход: используем поисковый шлюз, который не блочится Гитхабом
-        const s = document.createElement('script');
-        window.ytCallback = (data) => {
-            res.innerHTML = "";
-            data[1].slice(0, 5).forEach(item => {
-                // Генерируем "умную" карточку. Так как ID напрямую не вытащить без API, 
-                // мы используем прокси-поиск по названию
-                let div = document.createElement('div');
-                div.className = 'v-card';
-                div.innerHTML = `<p style="font-size:12px;">🔍 ${item[0]}</p>`;
-                div.onclick = () => {
-                    // При клике ищем конкретное видео
-                    fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://pipedapi.kavin.rocks/search?q=' + item[0] + '&filter=videos')}`)
-                    .then(r => r.json()).then(d => {
-                        let stream = JSON.parse(d.contents).streams[0];
-                        if (stream) play(stream.url.split("v=")[1]);
-                    });
-                };
-                res.appendChild(div);
-            });
-        };
-        s.src = `https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(q)}&callback=ytCallback`;
-        document.body.appendChild(s);
-    }
-
-    function play(id) {
-        player.src = `https://www.youtube.com/embed/${id}?autoplay=1&modestbranding=1&rel=0`;
-        db.ref('tubevideos').push({ id: id });
-        document.getElementById('results').innerHTML = "";
-        document.getElementById('res-title').style.display = "none";
-        window.scrollTo({top: 0, behavior: 'smooth'});
-    }
-
-    function renderCard(id, container) {
-        let div = document.createElement('div');
-        div.className = 'v-card';
-        div.onclick = () => play(id);
-        div.innerHTML = `<img src="https://i.ytimg.com/vi/${id}/mqdefault.jpg">`;
-        container.appendChild(div);
-    }
-</script>
 </body>
 </html>
