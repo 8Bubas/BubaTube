@@ -10,42 +10,48 @@
         .p-box { width: 100%; max-width: 850px; aspect-ratio: 16/9; background: #111; border-radius: 12px; overflow: hidden; margin-bottom: 15px; border: 1px solid #222; position: relative; }
         iframe { width: 100%; height: 100%; border: none; }
         
-        /* БРОНЯ: ЗАКРЫВАЕМ ВСЕ КНОПКИ ПЕРЕХОДА */
         .shield-t { position: absolute; top: 0; left: 0; width: 100%; height: 60px; z-index: 10; }
         .shield-b { position: absolute; bottom: 0; right: 0; width: 280px; height: 100px; z-index: 10; }
-        .shield-share { position: absolute; top: 0; right: 0; width: 100px; height: 100px; z-index: 10; }
+        .shield-s { position: absolute; top: 0; right: 0; width: 100px; height: 100px; z-index: 10; }
 
         .search-zone { display: flex; gap: 8px; width: 100%; max-width: 850px; margin-bottom: 20px; }
         input { flex: 1; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; border-radius: 20px; outline: none; }
         button { background: #ff0000; color: white; border: none; padding: 0 20px; border-radius: 20px; cursor: pointer; font-weight: bold; }
+        
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; width: 100%; max-width: 850px; }
-        .v-card { cursor: pointer; text-align: center; }
-        .v-card img { width: 100%; border-radius: 8px; border: 1px solid #333; }
+        .v-card { cursor: pointer; text-align: center; background: #111; padding: 5px; border-radius: 10px; border: 1px solid #222; }
+        .v-card img { width: 100%; border-radius: 8px; display: block; }
         .v-card p { font-size: 10px; color: #aaa; margin: 5px 0; height: 24px; overflow: hidden; }
-        h3 { align-self: flex-start; width: 100%; max-width: 850px; color: #444; font-size: 11px; margin: 10px auto; text-transform: uppercase; }
+        
+        h3 { align-self: flex-start; width: 100%; max-width: 850px; color: #444; font-size: 11px; margin: 15px auto 5px auto; text-transform: uppercase; }
     </style>
 </head>
 <body onload="init()">
     <div class="p-box">
         <div class="shield-t"></div>
         <div class="shield-b"></div>
-        <div class="shield-share"></div>
+        <div class="shield-s"></div>
         <iframe id="main-player" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
     </div>
+    
     <div class="search-zone">
         <input type="text" id="query" placeholder="Танки, Рояль или ссылка...">
-        <button onclick="handleAction()">ПУСК</button>
+        <button onclick="handleAction()">ПОИСК</button>
     </div>
+
     <div id="results" class="grid"></div>
+    
     <h3 id="rec-h" style="display:none">Похожие видео</h3>
     <div id="recs" class="grid"></div>
+
     <h3>История</h3>
     <div id="history" class="grid"></div>
 
 <script>
     let db;
     const player = document.getElementById('main-player');
-    const api = "https://pipedapi.kavin.rocks"; // Используем для поиска
+    const proxy = "https://api.allorigins.win/get?url=";
+    const piped = "https://pipedapi.kavin.rocks";
 
     function init() {
         const config = {
@@ -59,7 +65,7 @@
         };
         firebase.initializeApp(config);
         db = firebase.database();
-        db.ref('tubevideos').limitToLast(6).on('value', (s) => {
+        db.ref('tubevideos').limitToLast(4).on('value', (s) => {
             const h = document.getElementById('history');
             h.innerHTML = "";
             let data = s.val();
@@ -77,9 +83,10 @@
     async function search(q) {
         const res = document.getElementById('results');
         res.innerHTML = "Ищем...";
+        const target = `${piped}/search?q=${encodeURIComponent(q)}&filter=videos`;
         try {
-            const r = await fetch(`${api}/search?q=${encodeURIComponent(q)}&filter=videos`);
-            const d = await r.json();
+            const r = await fetch(proxy + encodeURIComponent(target));
+            const d = JSON.parse((await r.json()).contents);
             res.innerHTML = "";
             d.streams.slice(0, 5).forEach(v => {
                 let vidId = v.url.split("v=")[1];
@@ -91,9 +98,10 @@
     async function loadRecs(id) {
         const rDiv = document.getElementById('recs');
         document.getElementById('rec-h').style.display = "block";
+        const target = `${piped}/streams/${id}`;
         try {
-            const r = await fetch(`${api}/streams/${id}`);
-            const d = await r.json();
+            const r = await fetch(proxy + encodeURIComponent(target));
+            const d = JSON.parse((await r.json()).contents);
             rDiv.innerHTML = "";
             d.relatedStreams.slice(0, 3).forEach(v => {
                 let vidId = v.url.split("v=")[1];
@@ -106,6 +114,7 @@
         player.src = `https://www.youtube.com/embed/${id}?autoplay=1&modestbranding=1&rel=0&iv_load_policy=3&controls=1`;
         db.ref('tubevideos').push({ id: id, title: title });
         loadRecs(id);
+        document.getElementById('results').innerHTML = "";
         window.scrollTo({top: 0, behavior: 'smooth'});
     }
 
