@@ -26,12 +26,12 @@
         <button onclick="searchVid()">НАЙТИ</button>
     </div>
     <div id="search-results" class="grid"></div>
-    <h3>История холдинга:</h3>
+    <h3>История поиска:</h3>
     <div id="video-grid" class="grid"></div>
 <script>
     let db;
     let currentProxy = "https://yewtu.be";
-    const proxies = ["https://yewtu.be", "https://inv.tux.rs", "https://invidious.no-logs.com", "https://iv.melmac.space"];
+    const proxies = ["https://yewtu.be", "https://iv.melmac.space", "https://invidious.asir.dev", "https://invidious.no-logs.com"];
     const player = document.getElementById('main-player');
 
     function init() {
@@ -73,7 +73,7 @@
                 return;
             } catch (e) { continue; }
         }
-        resDiv.innerHTML = "<p>Сервера перегружены, попробуй позже</p>";
+        resDiv.innerHTML = "<p>Все зеркала заняты, повторите попытку позже</p>";
     }
 
     function renderCard(id, title, container, isSearch) {
