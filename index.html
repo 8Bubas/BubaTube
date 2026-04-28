@@ -1,27 +1,16 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <title>Картинка Тест</title>
     <style>
-        body {
-            background-color: #000; /* Черный фон */
-            margin: 0;
-            display: flex;
-            justify-content: center; /* Центр по горизонту */
-            align-items: center;    /* Центр по вертикали */
-            height: 100vh;          /* Высота на весь экран */
-        }
-        img {
-            max-width: 90%;         /* Чтобы не вылезала за края */
-            border-radius: 15px;    /* Скруглим углы для красоты */
-            border: 2px solid #333; /* Тонкая рамка */
-        }
+        body { background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; color: white; }
+        img { width: 300px; border: 2px solid red; margin: 10px; }
     </style>
 </head>
 <body>
-
-    <img src="https://ru.wikipedia.org/wiki/%D0%A4%D0%B0%D0%B9%D0%BB:George_Floyd.png" alt="Test Image">
-
+    <p>Тест через Google Proxy:</p>
+    <img src="https://images1-focus-opensocial.googleusercontent.com/gadgets/proxy?container=focus&refresh=2592000&url=https://i.ytimg.com/vi/p77_v0pGf_Y/mqdefault.jpg">
+    
+    <p>Тест через DuckDuckGo Proxy:</p>
+    <img src="https://external-content.duckduckgo.com/iu/?u=https://i.ytimg.com/vi/p77_v0pGf_Y/mqdefault.jpg">
 </body>
 </html>
