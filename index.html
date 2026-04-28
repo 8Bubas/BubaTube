@@ -2,44 +2,40 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>BubasTube Ultra</title>
+    <title>BubasTube</title>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
     <style>
         body { background: #000; color: white; font-family: sans-serif; margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; }
-        .p-box { width: 100%; max-width: 850px; aspect-ratio: 16/9; background: #111; border-radius: 12px; overflow: hidden; margin-bottom: 15px; border: 1px solid #222; position: relative; }
+        .p-box { width: 100%; max-width: 850px; aspect-ratio: 16/9; background: #111; border-radius: 12px; overflow: hidden; margin-bottom: 15px; border: 1px solid #222; }
         iframe { width: 100%; height: 100%; border: none; }
-        .shield-t { position: absolute; top: 0; left: 0; width: 100%; height: 60px; z-index: 10; }
-        .shield-b { position: absolute; bottom: 0; right: 0; width: 280px; height: 100px; z-index: 10; }
-        .search-zone { display: flex; gap: 8px; width: 100%; max-width: 850px; margin-bottom: 10px; }
+        .search-zone { display: flex; gap: 8px; width: 100%; max-width: 850px; margin-bottom: 20px; }
         input { flex: 1; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; border-radius: 20px; outline: none; }
         button { background: #ff0000; color: white; border: none; padding: 0 20px; border-radius: 20px; cursor: pointer; font-weight: bold; }
-        .s-list { width: 100%; max-width: 850px; display: flex; flex-direction: column; gap: 5px; margin-bottom: 20px; }
-        .s-item { background: #111; padding: 12px; border-radius: 10px; border: 1px solid #222; cursor: pointer; font-size: 14px; color: #ccc; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; width: 100%; max-width: 850px; }
-        .v-card { cursor: pointer; text-align: center; }
-        .v-card img { width: 100%; border-radius: 8px; border: 1px solid #222; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; width: 100%; max-width: 850px; margin-bottom: 20px; }
+        .v-card { cursor: pointer; text-align: center; background: #111; border-radius: 10px; padding: 5px; border: 1px solid #222; }
+        .v-card img { width: 100%; border-radius: 8px; }
         h3 { align-self: flex-start; width: 100%; max-width: 850px; color: #444; font-size: 11px; margin: 10px auto; text-transform: uppercase; }
+        .s-item { background: #111; padding: 10px; border-radius: 10px; border: 1px solid #222; cursor: pointer; margin-bottom: 5px; width: 100%; max-width: 850px; font-size: 14px; }
     </style>
 </head>
 <body onload="init()">
-    <div class="p-box">
-        <div class="shield-t"></div>
-        <div class="shield-b"></div>
-        <iframe id="main-player" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
-    </div>
+    <div class="p-box"><iframe id="main-player" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe></div>
     <div class="search-zone">
-        <input type="text" id="query" placeholder="Танки, Рояль..." oninput="getTips(this.value)">
+        <input type="text" id="query" placeholder="Вставь ссылку или ищи...">
         <button onclick="handleAction()">ПУСК</button>
     </div>
-    <div id="results" class="s-list"></div>
-    <h3>История</h3>
+    <div id="results"></div>
+    <h3>Твое избранное (Рекомендации)</h3>
+    <div id="recs-grid" class="grid"></div>
+    <h3>История просмотров</h3>
     <div id="history" class="grid"></div>
 
 <script>
     let db;
     const player = document.getElementById('main-player');
-    const proxy = "https://api.allorigins.win/get?url=";
+    // Сюда вставь ID видосов, которые хочешь видеть в рекомендациях
+    const myRecs = ['_m8_O0eG6Yc', 'p77_v0pGf_Y', '2I_8jS-p28Y', '5tzWGjB0ZFU'];
 
     function init() {
         const config = {
@@ -59,53 +55,37 @@
             let data = s.val();
             if (data) Object.values(data).reverse().forEach(v => renderCard(v.id, h));
         });
-    }
-
-    function getTips(q) {
-        if (q.length < 2) { document.getElementById('results').innerHTML = ""; return; }
-        const s = document.createElement('script');
-        window.ytCallback = (data) => {
-            const res = document.getElementById('results');
-            res.innerHTML = "";
-            data[1].slice(0, 6).forEach(item => {
-                let div = document.createElement('div');
-                div.className = 's-item';
-                div.innerText = "▶ " + item[0];
-                div.onclick = () => fastPlay(item[0]);
-                res.appendChild(div);
-            });
-        };
-        s.src = `https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(q)}&callback=ytCallback`;
-        document.body.appendChild(s);
-    }
-
-    async function fastPlay(q) {
-        document.getElementById('results').innerHTML = "Ищем...";
-        try {
-            // Используем JSON-прокси для поиска ID без ошибок
-            const target = `https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(q)}&filter=videos`;
-            const r = await fetch(proxy + encodeURIComponent(target));
-            const d = JSON.parse((await r.json()).contents);
-            if (d.streams && d.streams[0]) {
-                const id = d.streams[0].url.split("v=")[1];
-                play(id);
-            }
-        } catch (e) {
-            alert("Попробуй еще раз или вставь ссылку");
-            document.getElementById('results').innerHTML = "";
-        }
+        const rGrid = document.getElementById('recs-grid');
+        myRecs.forEach(id => renderCard(id, rGrid));
     }
 
     function handleAction() {
         let q = document.getElementById('query').value;
-        let id = (q.includes("v=")) ? q.split("v=")[1].split("&")[0] : (q.includes("youtu.be/")) ? q.split("youtu.be/")[1].split("?")[0] : "";
-        if (id) play(id); else fastPlay(q);
+        let id = q.includes("v=") ? q.split("v=")[1].split("&")[0] : q.includes("youtu.be/") ? q.split("youtu.be/")[1].split("?")[0] : "";
+        if (id) { play(id); document.getElementById('query').value = ""; }
+        else { searchTips(q); }
+    }
+
+    function searchTips(q) {
+        const res = document.getElementById('results');
+        const s = document.createElement('script');
+        window.googleCallback = (data) => {
+            res.innerHTML = "";
+            data[1].slice(0, 4).forEach(item => {
+                let div = document.createElement('div');
+                div.className = 's-item';
+                div.innerText = "▶ " + item[0];
+                div.onclick = () => window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(item[0])}`, '_blank');
+                res.appendChild(div);
+            });
+        };
+        s.src = `https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(q)}&callback=googleCallback`;
+        document.body.appendChild(s);
     }
 
     function play(id) {
-        player.src = `https://www.youtube.com/embed/${id}?autoplay=1&modestbranding=1&rel=0&iv_load_policy=3&controls=1`;
+        player.src = `https://www.youtube.com/embed/${id}?autoplay=1&modestbranding=1&rel=0`;
         db.ref('tubevideos').push({ id: id });
-        document.getElementById('results').innerHTML = "";
         window.scrollTo({top: 0, behavior: 'smooth'});
     }
 
