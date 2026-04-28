@@ -12,30 +12,28 @@
         .search-zone { display: flex; gap: 8px; width: 100%; max-width: 850px; margin-bottom: 20px; }
         input { flex: 1; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; border-radius: 20px; outline: none; }
         button { background: #ff0000; color: white; border: none; padding: 0 20px; border-radius: 20px; cursor: pointer; font-weight: bold; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; width: 100%; max-width: 850px; margin-bottom: 20px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; width: 100%; max-width: 850px; }
         .v-card { cursor: pointer; text-align: center; background: #111; border-radius: 10px; padding: 5px; border: 1px solid #222; }
-        .v-card img { width: 100%; border-radius: 8px; }
-        h3 { align-self: flex-start; width: 100%; max-width: 850px; color: #444; font-size: 11px; margin: 10px auto; text-transform: uppercase; }
-        .s-item { background: #111; padding: 10px; border-radius: 10px; border: 1px solid #222; cursor: pointer; margin-bottom: 5px; width: 100%; max-width: 850px; font-size: 14px; }
+        .v-card img { width: 100%; border-radius: 8px; display: block; }
+        h3 { align-self: flex-start; width: 100%; max-width: 850px; color: #444; font-size: 11px; margin: 15px auto 5px auto; text-transform: uppercase; }
     </style>
 </head>
 <body onload="init()">
     <div class="p-box"><iframe id="main-player" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe></div>
     <div class="search-zone">
-        <input type="text" id="query" placeholder="Вставь ссылку или ищи...">
+        <input type="text" id="query" placeholder="Вставь ссылку или напиши тему (Танки, Рояль)...">
         <button onclick="handleAction()">ПУСК</button>
     </div>
-    <div id="results"></div>
-    <h3>Твое избранное (Рекомендации)</h3>
-    <div id="recs-grid" class="grid"></div>
-    <h3>История просмотров</h3>
+
+    <h3 id="res-title" style="display:none;">РЕЗУЛЬТАТЫ ПОИСКА</h3>
+    <div id="results" class="grid"></div>
+
+    <h3>ИСТОРИЯ ПРОСМОТРОВ</h3>
     <div id="history" class="grid"></div>
 
 <script>
     let db;
     const player = document.getElementById('main-player');
-    // Сюда вставь ID видосов, которые хочешь видеть в рекомендациях
-    const myRecs = ['_m8_O0eG6Yc', 'p77_v0pGf_Y', '2I_8jS-p28Y', '5tzWGjB0ZFU'];
 
     function init() {
         const config = {
@@ -49,43 +47,61 @@
         };
         firebase.initializeApp(config);
         db = firebase.database();
-        db.ref('tubevideos').limitToLast(4).on('value', (s) => {
+        db.ref('tubevideos').limitToLast(6).on('value', (s) => {
             const h = document.getElementById('history');
             h.innerHTML = "";
             let data = s.val();
             if (data) Object.values(data).reverse().forEach(v => renderCard(v.id, h));
         });
-        const rGrid = document.getElementById('recs-grid');
-        myRecs.forEach(id => renderCard(id, rGrid));
     }
 
     function handleAction() {
         let q = document.getElementById('query').value;
-        let id = q.includes("v=") ? q.split("v=")[1].split("&")[0] : q.includes("youtu.be/") ? q.split("youtu.be/")[1].split("?")[0] : "";
-        if (id) { play(id); document.getElementById('query').value = ""; }
-        else { searchTips(q); }
+        if (!q) return;
+        let id = (q.includes("v=")) ? q.split("v=")[1].split("&")[0] : (q.includes("youtu.be/")) ? q.split("youtu.be/")[1].split("?")[0] : "";
+        if (id) { 
+            play(id); 
+            document.getElementById('query').value = "";
+        } else { 
+            search(q); 
+        }
     }
 
-    function searchTips(q) {
+    function search(q) {
         const res = document.getElementById('results');
+        document.getElementById('res-title').style.display = "block";
+        res.innerHTML = "Ищем...";
+        
+        // Хитрый обход: используем поисковый шлюз, который не блочится Гитхабом
         const s = document.createElement('script');
-        window.googleCallback = (data) => {
+        window.ytCallback = (data) => {
             res.innerHTML = "";
-            data[1].slice(0, 4).forEach(item => {
+            data[1].slice(0, 5).forEach(item => {
+                // Генерируем "умную" карточку. Так как ID напрямую не вытащить без API, 
+                // мы используем прокси-поиск по названию
                 let div = document.createElement('div');
-                div.className = 's-item';
-                div.innerText = "▶ " + item[0];
-                div.onclick = () => window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(item[0])}`, '_blank');
+                div.className = 'v-card';
+                div.innerHTML = `<p style="font-size:12px;">🔍 ${item[0]}</p>`;
+                div.onclick = () => {
+                    // При клике ищем конкретное видео
+                    fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://pipedapi.kavin.rocks/search?q=' + item[0] + '&filter=videos')}`)
+                    .then(r => r.json()).then(d => {
+                        let stream = JSON.parse(d.contents).streams[0];
+                        if (stream) play(stream.url.split("v=")[1]);
+                    });
+                };
                 res.appendChild(div);
             });
         };
-        s.src = `https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(q)}&callback=googleCallback`;
+        s.src = `https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(q)}&callback=ytCallback`;
         document.body.appendChild(s);
     }
 
     function play(id) {
         player.src = `https://www.youtube.com/embed/${id}?autoplay=1&modestbranding=1&rel=0`;
         db.ref('tubevideos').push({ id: id });
+        document.getElementById('results').innerHTML = "";
+        document.getElementById('res-title').style.display = "none";
         window.scrollTo({top: 0, behavior: 'smooth'});
     }
 
