@@ -2,28 +2,23 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>BubasTube Smart TV</title>
-    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+    <title>BubasTube Chaos Gaming</title>
     <style>
         body { background: #000; color: white; font-family: sans-serif; margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; }
-        .p-box { width: 100%; max-width: 850px; aspect-ratio: 16/9; background: #111; border-radius: 12px; overflow: hidden; margin-bottom: 15px; border: 1px solid #222; }
+        .p-box { width: 100%; max-width: 850px; aspect-ratio: 16/9; background: #111; border-radius: 12px; overflow: hidden; margin-bottom: 15px; border: 1px solid #222; box-shadow: 0 0 30px rgba(255,0,0,0.3); }
         iframe { width: 100%; height: 100%; border: none; }
-        .controls { display: flex; gap: 20px; margin-bottom: 20px; }
-        .btn { background: #ff0000; color: white; border: none; padding: 15px 40px; border-radius: 15px; font-size: 30px; cursor: pointer; font-weight: bold; }
-        .btn-back { background: #333; }
-        .title-card { background: #111; padding: 10px; border-radius: 10px; border-left: 5px solid #ff0000; width: 100%; max-width: 850px; margin-bottom: 10px; font-size: 14px; }
-        input { background: #1a1a1a; border: 1px solid #333; color: #555; padding: 10px; border-radius: 20px; width: 250px; text-align: center; font-size: 12px; }
+        .controls { display: flex; gap: 20px; }
+        .btn { background: #ff0000; color: white; border: none; padding: 20px 50px; border-radius: 15px; font-size: 35px; cursor: pointer; font-weight: bold; box-shadow: 0 6px #900; text-transform: uppercase; }
+        .btn:active { transform: translateY(3px); box-shadow: 0 2px #900; }
+        .btn-back { background: #333; box-shadow: 0 6px #111; }
+        #status { font-size: 16px; color: #ff0000; margin-bottom: 10px; font-weight: bold; text-align: center; height: 24px; letter-spacing: 1px; }
     </style>
 </head>
-<body onload="init()">
+<body>
 
-    <div class="title-card">
-        <span id="v-name">Жми → чтобы начать смотреть Танки/Клэш</span>
-    </div>
-    
+    <div id="status">ГОТОВ К КАТКЕ? ЖМИ →</div>
     <div class="p-box">
-        <iframe id="main-player" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+        <iframe id="player" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
     </div>
     
     <div class="controls">
@@ -31,78 +26,64 @@
         <button class="btn" onclick="nextVideo()">→</button>
     </div>
 
-    <input type="text" id="manual" placeholder="Или вставь свою ссылку..." onchange="handleUrl()">
-
 <script>
-    let db;
-    const player = document.getElementById('main-player');
-    
-    // ТВОЯ БАЗА (Разделил по тегам для "умного" подбора)
-    const playlist = [
-        {id: 'p77_v0pGf_Y', title: 'ОБЗОР ТИГРА', tag: 'tanks'},
-        {id: '2I_8jS-p28Y', title: 'КАК ВАЛИТ КВ-2', tag: 'tanks'},
-        {id: '8v_4m6_2Y9E', title: 'ТАНКОВЫЕ ПРИКОЛЫ', tag: 'tanks'},
-        {id: '5tzWGjB0ZFU', title: 'CLASH: ТОП ДЕКИ', tag: 'clash'},
-        {id: 'aq3n6hps_xk', title: 'ДЕФ В КЛЭШ РОЯЛЬ', tag: 'clash'},
-        {id: 'kJQP7kiw5Fk', title: 'ФОНК ДЛЯ КАТКИ', tag: 'music'}
-    ];
-
+    const player = document.getElementById('player');
+    const status = document.getElementById('status');
     let history = [];
     let pos = -1;
-    let lastTag = 'tanks';
 
-    function init() {
-        const config = {
-            apiKey: "AIzaSyCMgd0KOSCfyJ0RWk3qhpk6eMOnKPhLNbA",
-            authDomain: "bubaschat.firebaseapp.com",
-            databaseURL: "https://bubaschat-default-rtdb.firebaseio.com",
-            projectId: "bubaschat",
-            storageBucket: "bubaschat.firebasestorage.app",
-            messagingSenderId: "360805253305",
-            appId: "1:360805253305:web:6f5ed2c212a44833e7db68"
-        };
-        firebase.initializeApp(config);
-        db = firebase.database();
+    // ГИГАНТСКИЙ СПИСОК ТЕМ: ИГРЫ, ТЕХНИКА, ТРЭШ
+    const myTopics = [
+        // ИГРЫ (новое)
+        "CS2 ace highlights", "FNAF funny moments", "Minecraft survival 100 days", "Rust base raid", "DayZ epic encounters",
+        "GTA 5 Thug Life", "Garry's Mod chaos", "Elden Ring boss fight", "Horror game jumpscares", "Mortal Kombat fatalities",
+        "Brawl Stars legendary pulls", "Clash of Clans clan war", "Roblox horror stories", "Mobile Legends savage",
+        // ЭКСТРИМ И ТЕХНИКА
+        "T-90 Tank modern warfare", "KV-2 one shot compilation", "War Thunder jet dogfight", "Su-57 Felon maneuver",
+        "Hydraulic press destruction", "High speed police chase POV", "Drift competition Japan", "Offroad 4x4 fail",
+        // ТРЭШ И ЮМОР
+        "Best pranks 2026", "Try not to laugh hard", "Webcam fails", "Stupid inventions", "Meme compilation 2026",
+        // МОРЕ (твоё)
+        "Huge storm vs cargo ship", "Modern aircraft carrier operation", "Odessa port drone view", "Submarine combat mission"
+    ];
+
+    async function nextVideo() {
+        status.innerText = "ГЕНЕРИРУЕМ ХАОС...";
+        
+        const randomTopic = myTopics[Math.floor(Math.random() * myTopics.length)];
+        const q = `${randomTopic} ${Math.floor(Math.random() * 50)}`;
+        
+        try {
+            const r = await fetch(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(q)}&filter=videos`);
+            const d = await r.json();
+            
+            if (d.streams && d.streams.length > 0) {
+                // Выбираем любое из первых 20 результатов для максимума рандома
+                const v = d.streams[Math.floor(Math.random() * Math.min(d.streams.length, 20))];
+                const id = v.url.split("v=")[1];
+                
+                history.push({id: id, title: v.title});
+                pos = history.length - 1;
+                play(id);
+                status.innerText = "СЕЙЧАС: " + v.title.substring(0, 35).toUpperCase() + "...";
+            } else {
+                nextVideo();
+            }
+        } catch (e) {
+            status.innerText = "ШЛЮЗ ТОРМОЗИТ, ЖМИ ЕЩЕ!";
+        }
     }
 
-    function nextVideo() {
-        // Логика: 70% вероятности, что выпадет та же категория
-        let candidates = playlist.filter(v => v.tag === lastTag);
-        if (candidates.length === 0 || Math.random() > 0.7) {
-            candidates = playlist;
-        }
-
-        let v = candidates[Math.floor(Math.random() * candidates.length)];
-        lastTag = v.tag; // Запоминаем интерес
-        
-        history.push(v);
-        pos = history.length - 1;
-        play(v.id, v.title);
+    function play(id) {
+        player.src = `https://www.youtube.com/embed/${id}?autoplay=1&modestbranding=1&rel=0&iv_load_policy=3`;
     }
 
     function goBack() {
         if (pos > 0) {
             pos--;
             let v = history[pos];
-            play(v.id, v.title);
-        }
-    }
-
-    function play(id, title) {
-        // Добавил параметры против рекламы и лишнего мусора
-        player.src = `https://www.youtube.com/embed/${id}?autoplay=1&modestbranding=1&iv_load_policy=3&rel=0`;
-        document.getElementById('v-name').innerText = title;
-        db.ref('tubevideos').push({ id: id, title: title, type: 'random' });
-    }
-
-    function handleUrl() {
-        let q = document.getElementById('manual').value;
-        let id = q.includes("v=") ? q.split("v=")[1].split("&")[0] : q.includes("youtu.be/") ? q.split("youtu.be/")[1].split("?")[0] : "";
-        if (id) {
-            play(id, "ТВОЁ ВИДЕО");
-            history.push({id: id, title: "ТВОЯ ССЫЛКА", tag: 'custom'});
-            pos = history.length - 1;
-            document.getElementById('manual').value = "";
+            play(v.id);
+            status.innerText = "ИСТОРИЯ: " + v.title.substring(0, 30);
         }
     }
 </script>
