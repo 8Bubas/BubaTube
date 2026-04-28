@@ -10,24 +10,25 @@
         .p-box { width: 100%; max-width: 850px; aspect-ratio: 16/9; background: #111; border-radius: 12px; overflow: hidden; margin-bottom: 15px; border: 1px solid #222; position: relative; }
         iframe { width: 100%; height: 100%; border: none; }
         
-        /* БРОНЯ ТОЛЬКО НА ВЫХОДЫ */
-        .shield-t { position: absolute; top: 0; left: 0; width: 50%; height: 60px; z-index: 10; }
-        .shield-yt { position: absolute; bottom: 0; right: 0; width: 150px; height: 50px; z-index: 10; }
+        .shield-t { position: absolute; top: 0; left: 0; width: 100%; height: 70px; z-index: 10; }
+        .shield-b { position: absolute; bottom: 0; right: 0; width: 100%; height: 100px; z-index: 10; }
 
         .search-zone { display: flex; gap: 8px; width: 100%; max-width: 850px; margin-bottom: 20px; }
         input { flex: 1; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; border-radius: 20px; outline: none; }
         button { background: #ff0000; color: white; border: none; padding: 0 20px; border-radius: 20px; cursor: pointer; font-weight: bold; }
         
-        .grid { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; max-width: 850px; justify-content: center; }
-        .v-btn { background: #111; border: 1px solid #333; color: #ccc; padding: 8px 15px; border-radius: 15px; font-size: 12px; cursor: pointer; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; width: 100%; max-width: 850px; margin-bottom: 20px; }
+        .v-card { cursor: pointer; text-align: center; background: #111; border-radius: 10px; padding: 5px; border: 1px solid #222; }
+        .v-card img { width: 100%; border-radius: 8px; }
+        .v-card p { font-size: 10px; color: #aaa; margin: 5px 0; height: 24px; overflow: hidden; }
         
-        h3 { align-self: flex-start; width: 100%; max-width: 850px; color: #444; font-size: 11px; margin: 15px auto 5px auto; text-transform: uppercase; }
+        h3 { align-self: flex-start; width: 100%; max-width: 850px; color: #444; font-size: 11px; margin: 10px auto; text-transform: uppercase; }
     </style>
 </head>
 <body onload="init()">
     <div class="p-box">
         <div class="shield-t"></div>
-        <div class="shield-yt"></div>
+        <div class="shield-b"></div>
         <iframe id="main-player" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
     </div>
     
@@ -57,19 +58,11 @@
         };
         firebase.initializeApp(config);
         db = firebase.database();
-        db.ref('tubevideos').limitToLast(10).on('value', (s) => {
+        db.ref('tubevideos').limitToLast(5).on('value', (s) => {
             const h = document.getElementById('history');
             h.innerHTML = "";
             let data = s.val();
-            if (data) {
-                Object.entries(data).reverse().forEach(([key, v]) => {
-                    let btn = document.createElement('button');
-                    btn.className = 'v-btn';
-                    btn.innerText = v.title || "Видео";
-                    btn.onclick = () => play(v.id, v.title);
-                    h.appendChild(btn);
-                });
-            }
+            if (data) Object.values(data).reverse().forEach(v => renderCard(v.id, v.title, h));
         });
     }
 
@@ -77,39 +70,37 @@
         let q = document.getElementById('query').value;
         if (!q) return;
         let id = (q.includes("v=")) ? q.split("v=")[1].split("&")[0] : (q.includes("youtu.be/")) ? q.split("youtu.be/")[1].split("?")[0] : "";
-        if (id) { 
-            play(id, "Видео по ссылке"); 
-            document.getElementById('query').value = "";
-        } else { 
-            search(q); 
-        }
+        if (id) { play(id, "Видео"); } else { search(q); }
     }
 
-    function search(q) {
+    async function search(q) {
         const res = document.getElementById('results');
-        res.innerHTML = "";
-        const s = document.createElement('script');
-        window.googleCallback = (data) => {
-            data[1].slice(0, 5).forEach(item => {
-                let btn = document.createElement('button');
-                btn.className = 'v-btn';
-                btn.innerText = item[0];
-                btn.onclick = () => {
-                    // При клике на поиск просто открываем выдачу в новом окне для выбора
-                    window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(item[0])}`, '_blank');
-                };
-                res.appendChild(btn);
+        res.innerHTML = "Ищем...";
+        try {
+            // Используем мощный прокси-шлюз, который парсит Ютуб и выдает только нужные нам данные
+            const r = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://pipedapi.kavin.rocks/search?q=' + q + '&filter=videos')}`);
+            const d = JSON.parse((await r.json()).contents);
+            res.innerHTML = "";
+            d.streams.slice(0, 5).forEach(v => {
+                let vidId = v.url.split("v=")[1];
+                renderCard(vidId, v.title, res);
             });
-        };
-        s.src = `https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(q)}&callback=googleCallback`;
-        document.body.appendChild(s);
+        } catch (e) { res.innerHTML = "Ошибка. Вставь ссылку."; }
     }
 
     function play(id, title) {
-        // rel=1 включает рекомендации в конце ролика
-        player.src = `https://www.youtube.com/embed/${id}?autoplay=1&modestbranding=1&rel=1&iv_load_policy=1&controls=1`;
+        player.src = `https://www.youtube.com/embed/${id}?autoplay=1&modestbranding=1&rel=0&iv_load_policy=3&controls=1`;
         db.ref('tubevideos').push({ id: id, title: title });
+        document.getElementById('results').innerHTML = "";
         window.scrollTo({top: 0, behavior: 'smooth'});
+    }
+
+    function renderCard(id, title, container) {
+        let div = document.createElement('div');
+        div.className = 'v-card';
+        div.onclick = () => play(id, title);
+        div.innerHTML = `<img src="https://i.ytimg.com/vi/${id}/mqdefault.jpg"><p>${title || ''}</p>`;
+        container.appendChild(div);
     }
 </script>
 </body>
