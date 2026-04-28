@@ -10,18 +10,16 @@
         .p-box { width: 100%; max-width: 850px; aspect-ratio: 16/9; background: #111; border-radius: 12px; overflow: hidden; margin-bottom: 15px; border: 1px solid #222; position: relative; }
         iframe { width: 100%; height: 100%; border: none; }
         
-        .shield-t { position: absolute; top: 0; left: 0; width: 100%; height: 60px; z-index: 10; }
-        .shield-b { position: absolute; bottom: 0; right: 0; width: 280px; height: 100px; z-index: 10; }
-        .shield-s { position: absolute; top: 0; right: 0; width: 100px; height: 100px; z-index: 10; }
+        /* БРОНЯ ТОЛЬКО НА ВЫХОДЫ */
+        .shield-t { position: absolute; top: 0; left: 0; width: 50%; height: 60px; z-index: 10; }
+        .shield-yt { position: absolute; bottom: 0; right: 0; width: 150px; height: 50px; z-index: 10; }
 
         .search-zone { display: flex; gap: 8px; width: 100%; max-width: 850px; margin-bottom: 20px; }
         input { flex: 1; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; border-radius: 20px; outline: none; }
         button { background: #ff0000; color: white; border: none; padding: 0 20px; border-radius: 20px; cursor: pointer; font-weight: bold; }
         
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; width: 100%; max-width: 850px; }
-        .v-card { cursor: pointer; text-align: center; background: #111; padding: 5px; border-radius: 10px; border: 1px solid #222; }
-        .v-card img { width: 100%; border-radius: 8px; display: block; }
-        .v-card p { font-size: 10px; color: #aaa; margin: 5px 0; height: 24px; overflow: hidden; }
+        .grid { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; max-width: 850px; justify-content: center; }
+        .v-btn { background: #111; border: 1px solid #333; color: #ccc; padding: 8px 15px; border-radius: 15px; font-size: 12px; cursor: pointer; }
         
         h3 { align-self: flex-start; width: 100%; max-width: 850px; color: #444; font-size: 11px; margin: 15px auto 5px auto; text-transform: uppercase; }
     </style>
@@ -29,20 +27,16 @@
 <body onload="init()">
     <div class="p-box">
         <div class="shield-t"></div>
-        <div class="shield-b"></div>
-        <div class="shield-s"></div>
+        <div class="shield-yt"></div>
         <iframe id="main-player" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
     </div>
     
     <div class="search-zone">
         <input type="text" id="query" placeholder="Танки, Рояль или ссылка...">
-        <button onclick="handleAction()">ПОИСК</button>
+        <button onclick="handleAction()">ПУСК</button>
     </div>
 
     <div id="results" class="grid"></div>
-    
-    <h3 id="rec-h" style="display:none">Похожие видео</h3>
-    <div id="recs" class="grid"></div>
 
     <h3>История</h3>
     <div id="history" class="grid"></div>
@@ -50,8 +44,6 @@
 <script>
     let db;
     const player = document.getElementById('main-player');
-    const proxy = "https://api.allorigins.win/get?url=";
-    const piped = "https://pipedapi.kavin.rocks";
 
     function init() {
         const config = {
@@ -65,11 +57,19 @@
         };
         firebase.initializeApp(config);
         db = firebase.database();
-        db.ref('tubevideos').limitToLast(4).on('value', (s) => {
+        db.ref('tubevideos').limitToLast(10).on('value', (s) => {
             const h = document.getElementById('history');
             h.innerHTML = "";
             let data = s.val();
-            if (data) Object.values(data).reverse().forEach(v => renderCard(v.id, v.title, h));
+            if (data) {
+                Object.entries(data).reverse().forEach(([key, v]) => {
+                    let btn = document.createElement('button');
+                    btn.className = 'v-btn';
+                    btn.innerText = v.title || "Видео";
+                    btn.onclick = () => play(v.id, v.title);
+                    h.appendChild(btn);
+                });
+            }
         });
     }
 
@@ -77,53 +77,39 @@
         let q = document.getElementById('query').value;
         if (!q) return;
         let id = (q.includes("v=")) ? q.split("v=")[1].split("&")[0] : (q.includes("youtu.be/")) ? q.split("youtu.be/")[1].split("?")[0] : "";
-        if (id) { play(id, "Видео"); } else { search(q); }
+        if (id) { 
+            play(id, "Видео по ссылке"); 
+            document.getElementById('query').value = "";
+        } else { 
+            search(q); 
+        }
     }
 
-    async function search(q) {
+    function search(q) {
         const res = document.getElementById('results');
-        res.innerHTML = "Ищем...";
-        const target = `${piped}/search?q=${encodeURIComponent(q)}&filter=videos`;
-        try {
-            const r = await fetch(proxy + encodeURIComponent(target));
-            const d = JSON.parse((await r.json()).contents);
-            res.innerHTML = "";
-            d.streams.slice(0, 5).forEach(v => {
-                let vidId = v.url.split("v=")[1];
-                renderCard(vidId, v.title, res);
+        res.innerHTML = "";
+        const s = document.createElement('script');
+        window.googleCallback = (data) => {
+            data[1].slice(0, 5).forEach(item => {
+                let btn = document.createElement('button');
+                btn.className = 'v-btn';
+                btn.innerText = item[0];
+                btn.onclick = () => {
+                    // При клике на поиск просто открываем выдачу в новом окне для выбора
+                    window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(item[0])}`, '_blank');
+                };
+                res.appendChild(btn);
             });
-        } catch (e) { res.innerHTML = "Ошибка. Вставь ссылку."; }
-    }
-
-    async function loadRecs(id) {
-        const rDiv = document.getElementById('recs');
-        document.getElementById('rec-h').style.display = "block";
-        const target = `${piped}/streams/${id}`;
-        try {
-            const r = await fetch(proxy + encodeURIComponent(target));
-            const d = JSON.parse((await r.json()).contents);
-            rDiv.innerHTML = "";
-            d.relatedStreams.slice(0, 3).forEach(v => {
-                let vidId = v.url.split("v=")[1];
-                renderCard(vidId, v.title, rDiv);
-            });
-        } catch (e) { }
+        };
+        s.src = `https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(q)}&callback=googleCallback`;
+        document.body.appendChild(s);
     }
 
     function play(id, title) {
-        player.src = `https://www.youtube.com/embed/${id}?autoplay=1&modestbranding=1&rel=0&iv_load_policy=3&controls=1`;
+        // rel=1 включает рекомендации в конце ролика
+        player.src = `https://www.youtube.com/embed/${id}?autoplay=1&modestbranding=1&rel=1&iv_load_policy=1&controls=1`;
         db.ref('tubevideos').push({ id: id, title: title });
-        loadRecs(id);
-        document.getElementById('results').innerHTML = "";
         window.scrollTo({top: 0, behavior: 'smooth'});
-    }
-
-    function renderCard(id, title, container) {
-        let div = document.createElement('div');
-        div.className = 'v-card';
-        div.onclick = () => play(id, title);
-        div.innerHTML = `<img src="https://i.ytimg.com/vi/${id}/mqdefault.jpg"><p>${title || ''}</p>`;
-        container.appendChild(div);
     }
 </script>
 </body>
