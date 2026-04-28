@@ -2,27 +2,35 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>BubasTube Stealth</title>
+    <title>BubasTube Ultra</title>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
     <style>
-        body { background: #050505; color: white; font-family: sans-serif; margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; }
-        .p-box { width: 100%; max-width: 850px; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 15px; border: 1px solid #1a1a1a; }
-        /* Чистый плеер без мусора */
-        video { width: 100%; height: 100%; outline: none; }
+        body { background: #000; color: white; font-family: sans-serif; margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; }
+        .p-box { width: 100%; max-width: 850px; aspect-ratio: 16/9; background: #111; border-radius: 12px; overflow: hidden; margin-bottom: 15px; border: 1px solid #222; position: relative; }
+        iframe { width: 100%; height: 100%; border: none; }
+        
+        /* БРОНЯ: ЗАКРЫВАЕМ ВСЕ КНОПКИ ПЕРЕХОДА */
+        .shield-t { position: absolute; top: 0; left: 0; width: 100%; height: 60px; z-index: 10; }
+        .shield-b { position: absolute; bottom: 0; right: 0; width: 280px; height: 100px; z-index: 10; }
+        .shield-share { position: absolute; top: 0; right: 0; width: 100px; height: 100px; z-index: 10; }
+
         .search-zone { display: flex; gap: 8px; width: 100%; max-width: 850px; margin-bottom: 20px; }
-        input { flex: 1; background: #111; border: 1px solid #222; color: white; padding: 12px; border-radius: 20px; outline: none; }
+        input { flex: 1; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; border-radius: 20px; outline: none; }
         button { background: #ff0000; color: white; border: none; padding: 0 20px; border-radius: 20px; cursor: pointer; font-weight: bold; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; width: 100%; max-width: 850px; margin-bottom: 20px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; width: 100%; max-width: 850px; }
         .v-card { cursor: pointer; text-align: center; }
-        .v-card img { width: 100%; border-radius: 8px; border: 1px solid #1a1a1a; }
-        .v-card p { font-size: 10px; color: #777; margin: 5px 0; height: 24px; overflow: hidden; }
-        h3 { align-self: flex-start; width: 100%; max-width: 850px; color: #333; font-size: 11px; margin: 10px auto; text-transform: uppercase; }
+        .v-card img { width: 100%; border-radius: 8px; border: 1px solid #333; }
+        .v-card p { font-size: 10px; color: #aaa; margin: 5px 0; height: 24px; overflow: hidden; }
+        h3 { align-self: flex-start; width: 100%; max-width: 850px; color: #444; font-size: 11px; margin: 10px auto; text-transform: uppercase; }
     </style>
 </head>
 <body onload="init()">
     <div class="p-box">
-        <video id="bubas-player" controls autoplay poster="https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg"></video>
+        <div class="shield-t"></div>
+        <div class="shield-b"></div>
+        <div class="shield-share"></div>
+        <iframe id="main-player" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
     </div>
     <div class="search-zone">
         <input type="text" id="query" placeholder="Танки, Рояль или ссылка...">
@@ -36,8 +44,8 @@
 
 <script>
     let db;
-    const vPlayer = document.getElementById('bubas-player');
-    const searchApi = "https://invidious.ducks.party"; // Живое зеркало для поиска
+    const player = document.getElementById('main-player');
+    const api = "https://pipedapi.kavin.rocks"; // Используем для поиска
 
     function init() {
         const config = {
@@ -68,30 +76,34 @@
 
     async function search(q) {
         const res = document.getElementById('results');
-        res.innerHTML = "...";
+        res.innerHTML = "Ищем...";
         try {
-            const r = await fetch(`${searchApi}/api/v1/search?q=${encodeURIComponent(q)}&type=video`);
+            const r = await fetch(`${api}/search?q=${encodeURIComponent(q)}&filter=videos`);
             const d = await r.json();
             res.innerHTML = "";
-            d.slice(0, 5).forEach(v => renderCard(v.videoId, v.title, res));
-        } catch (e) { res.innerHTML = "Ошибка поиска. Используй ссылку."; }
+            d.streams.slice(0, 5).forEach(v => {
+                let vidId = v.url.split("v=")[1];
+                renderCard(vidId, v.title, res);
+            });
+        } catch (e) { res.innerHTML = "Ошибка. Вставь ссылку."; }
     }
 
     async function loadRecs(id) {
         const rDiv = document.getElementById('recs');
         document.getElementById('rec-h').style.display = "block";
         try {
-            const r = await fetch(`${searchApi}/api/v1/videos/${id}`);
+            const r = await fetch(`${api}/streams/${id}`);
             const d = await r.json();
             rDiv.innerHTML = "";
-            d.recommendedVideos.slice(0, 3).forEach(v => renderCard(v.videoId, v.title, rDiv));
+            d.relatedStreams.slice(0, 3).forEach(v => {
+                let vidId = v.url.split("v=")[1];
+                renderCard(vidId, v.title, rDiv);
+            });
         } catch (e) { }
     }
 
     function play(id, title) {
-        // Магия: подгружаем видео через альтернативный источник
-        vPlayer.src = `https://invidious.ducks.party/latest_version?id=${id}&itag=22`;
-        vPlayer.poster = `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`;
+        player.src = `https://www.youtube.com/embed/${id}?autoplay=1&modestbranding=1&rel=0&iv_load_policy=3&controls=1`;
         db.ref('tubevideos').push({ id: id, title: title });
         loadRecs(id);
         window.scrollTo({top: 0, behavior: 'smooth'});
