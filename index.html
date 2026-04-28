@@ -22,17 +22,18 @@
 <body onload="init()">
     <div class="p-box"><iframe id="main-player" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe></div>
     <div class="search-zone">
-        <input type="text" id="query" placeholder="Поиск...">
+        <input type="text" id="query" placeholder="Поиск (танки, рояль...)">
         <button onclick="searchVid()">НАЙТИ</button>
     </div>
-    <h3>Результаты:</h3>
     <div id="search-results" class="grid"></div>
-    <h3>История:</h3>
+    <h3>История холдинга:</h3>
     <div id="video-grid" class="grid"></div>
 <script>
     let db;
+    let currentProxy = "https://yewtu.be";
+    const proxies = ["https://yewtu.be", "https://inv.tux.rs", "https://invidious.no-logs.com", "https://iv.melmac.space"];
     const player = document.getElementById('main-player');
-    const proxy = "https://yewtu.be"; 
+
     function init() {
         const firebaseConfig = {
             apiKey: "AIzaSyCMgd0KOSCfyJ0RWk3qhpk6eMOnKPhLNbA",
@@ -50,37 +51,40 @@
             g.innerHTML = "";
             let data = s.val();
             if (data) {
-                Object.values(data).reverse().forEach(v => {
-                    renderCard(v.id, v.title || "", g, false);
-                });
+                Object.values(data).reverse().forEach(v => renderCard(v.id, v.title, g, false));
             }
         });
     }
+
     async function searchVid() {
         let q = document.getElementById('query').value;
         if (!q) return;
         const resDiv = document.getElementById('search-results');
-        resDiv.innerHTML = "<p>...</p>";
-        try {
-            const response = await fetch(proxy + "/api/v1/search?q=" + encodeURIComponent(q));
-            const results = await response.json();
-            resDiv.innerHTML = "";
-            results.forEach(v => {
-                if (v.type === "video") renderCard(v.videoId, v.title, resDiv, true);
-            });
-        } catch (e) {
-            resDiv.innerHTML = "<p>Ошибка</p>";
+        resDiv.innerHTML = "<p>Ищем...</p>";
+        
+        for (let p of proxies) {
+            try {
+                const response = await fetch(`${p}/api/v1/search?q=${encodeURIComponent(q)}`);
+                if (!response.ok) continue;
+                const results = await response.json();
+                currentProxy = p;
+                resDiv.innerHTML = "";
+                results.forEach(v => { if (v.type === "video") renderCard(v.videoId, v.title, resDiv, true); });
+                return;
+            } catch (e) { continue; }
         }
+        resDiv.innerHTML = "<p>Сервера перегружены, попробуй позже</p>";
     }
+
     function renderCard(id, title, container, isSearch) {
         let div = document.createElement('div');
         div.className = 'v-card';
         div.onclick = () => {
-            player.src = proxy + "/embed/" + id + "?autoplay=1";
+            player.src = `${currentProxy}/embed/${id}?autoplay=1`;
             if (isSearch) db.ref('tubevideos').push({ id: id, title: title });
             window.scrollTo({top: 0, behavior: 'smooth'});
         };
-        div.innerHTML = '<img src="' + proxy + '/vi/' + id + '/mqdefault.jpg"><p>' + title + '</p>';
+        div.innerHTML = `<img src="${currentProxy}/vi/${id}/mqdefault.jpg"><p>${title}</p>`;
         container.appendChild(div);
     }
 </script>
