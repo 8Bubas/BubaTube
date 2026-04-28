@@ -6,17 +6,18 @@
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
     <style>
-        body { background: #000; color: white; font-family: sans-serif; margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
-        .p-box { width: 100%; max-width: 850px; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 20px; border: 1px solid #222; }
+        body { background: #000; color: white; font-family: sans-serif; margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; }
+        .p-box { width: 100%; max-width: 850px; aspect-ratio: 16/9; background: #111; border-radius: 12px; overflow: hidden; margin-bottom: 15px; border: 1px solid #222; }
         iframe { width: 100%; height: 100%; border: none; }
-        .search-zone { display: flex; gap: 10px; width: 100%; max-width: 850px; margin-bottom: 20px; }
-        input { flex: 1; background: #111; border: 1px solid #333; color: white; padding: 12px; border-radius: 25px; outline: none; }
-        button { background: #ff0000; color: white; border: none; padding: 0 25px; border-radius: 25px; cursor: pointer; font-weight: bold; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; width: 100%; max-width: 1000px; }
-        .v-card { cursor: pointer; }
-        .v-card img { width: 100%; border-radius: 8px; border: 1px solid #222; transition: 0.2s; }
-        .v-card img:hover { border-color: #ff0000; transform: scale(1.03); }
-        h3 { align-self: flex-start; width: 100%; max-width: 850px; color: #444; font-size: 12px; margin-left: auto; margin-right: auto; }
+        .search-zone { display: flex; gap: 8px; width: 100%; max-width: 850px; margin-bottom: 20px; }
+        input { flex: 1; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; border-radius: 20px; outline: none; }
+        button { background: #ff0000; color: white; border: none; padding: 0 20px; border-radius: 20px; cursor: pointer; font-weight: bold; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; width: 100%; max-width: 850px; }
+        .v-card { cursor: pointer; text-align: center; }
+        .v-card img { width: 100%; border-radius: 8px; border: 1px solid #333; transition: 0.2s; }
+        .v-card img:hover { border-color: #ff0000; transform: scale(1.02); }
+        .v-card p { font-size: 10px; color: #aaa; margin-top: 5px; height: 24px; overflow: hidden; }
+        h3 { align-self: flex-start; width: 100%; max-width: 850px; color: #444; font-size: 12px; margin: 10px auto; }
     </style>
 </head>
 <body onload="init()">
@@ -26,11 +27,14 @@
         <button onclick="handleAction()">ПУСК</button>
     </div>
     <div id="results" class="grid"></div>
-    <h3>ИСТОРИЯ</h3>
-    <div id="video-grid" class="grid"></div>
+    <h3>НЕДАВНИЕ ПРОСМОТРЫ</h3>
+    <div id="history" class="grid"></div>
+
 <script>
     let db;
     const player = document.getElementById('main-player');
+    const api = "https://pipedapi.kavin.rocks";
+
     function init() {
         const config = {
             apiKey: "AIzaSyCMgd0KOSCfyJ0RWk3qhpk6eMOnKPhLNbA",
@@ -43,41 +47,55 @@
         };
         firebase.initializeApp(config);
         db = firebase.database();
-        db.ref('tubevideos').limitToLast(12).on('value', (s) => {
-            const g = document.getElementById('video-grid');
-            g.innerHTML = "";
+        db.ref('tubevideos').limitToLast(5).on('value', (s) => {
+            const h = document.getElementById('history');
+            h.innerHTML = "";
             let data = s.val();
-            if (data) Object.values(data).reverse().forEach(v => renderCard(v.id, g, false));
+            if (data) Object.values(data).reverse().forEach(v => renderCard(v.id, v.title, h, false));
         });
     }
+
     function handleAction() {
         let q = document.getElementById('query').value;
         if (!q) return;
         let id = "";
         if (q.includes("v=")) id = q.split("v=")[1].split("&")[0];
         else if (q.includes("youtu.be/")) id = q.split("youtu.be/")[1].split("?")[0];
-        if (id) { play(id); db.ref('tubevideos').push({ id: id }); document.getElementById('query').value = ""; }
-        else { search(q); }
+        
+        if (id) {
+            play(id, "Видео по ссылке");
+            document.getElementById('query').value = "";
+        } else {
+            search(q);
+        }
     }
+
     async function search(q) {
         const res = document.getElementById('results');
-        res.innerHTML = "...";
+        res.innerHTML = "Ищем...";
         try {
-            const r = await fetch(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(q)}&filter=videos`);
+            const r = await fetch(`${api}/search?q=${encodeURIComponent(q)}&filter=videos`);
             const d = await r.json();
             res.innerHTML = "";
-            d.streams.forEach(v => { let vidId = v.url.split("v=")[1]; renderCard(vidId, res, true); });
-        } catch (e) { res.innerHTML = ""; }
+            // Берем только первые 5-6 штук
+            d.streams.slice(0, 6).forEach(v => {
+                let vidId = v.url.split("v=")[1];
+                renderCard(vidId, v.title, res, true);
+            });
+        } catch (e) { res.innerHTML = "Ошибка поиска"; }
     }
-    function play(id) {
-        player.src = `https://www.youtube.com/embed/${id}?autoplay=1&modestbranding=1&rel=0`;
+
+    function play(id, title) {
+        player.src = `https://www.youtube.com/embed/${id}?autoplay=1&modestbranding=1`;
+        db.ref('tubevideos').push({ id: id, title: title });
         window.scrollTo({top: 0, behavior: 'smooth'});
     }
-    function renderCard(id, container, save) {
+
+    function renderCard(id, title, container, save) {
         let div = document.createElement('div');
         div.className = 'v-card';
-        div.onclick = () => { play(id); if (save) db.ref('tubevideos').push({ id: id }); };
-        div.innerHTML = `<img src="https://img.youtube.com/vi/${id}/mqdefault.jpg">`;
+        div.onclick = () => play(id, title);
+        div.innerHTML = `<img src="https://img.youtube.com/vi/${id}/mqdefault.jpg"><p>${title || ''}</p>`;
         container.appendChild(div);
     }
 </script>
