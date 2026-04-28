@@ -23,7 +23,7 @@
         <iframe id="main-player" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
     </div>
     <div class="search-zone">
-        <input type="text" id="query" placeholder="Вставь ссылку или пиши поиск...">
+        <input type="text" id="query" placeholder="Пиши поиск или ссылку...">
         <button onclick="handleAction()">ПУСК</button>
     </div>
     <div id="search-results" class="grid"></div>
@@ -32,8 +32,6 @@
 
 <script>
     let db;
-    let currentProxy = "https://invidious.flokinet.to"; 
-    const proxies = ["https://invidious.flokinet.to", "https://iv.melmac.space", "https://yewtu.be"];
     const player = document.getElementById('main-player');
 
     function init() {
@@ -62,7 +60,6 @@
         let id = "";
         if (q.includes("v=")) id = q.split("v=")[1].split("&")[0];
         else if (q.includes("youtu.be/")) id = q.split("youtu.be/")[1].split("?")[0];
-        else if (q.includes("embed/")) id = q.split("embed/")[1].split("?")[0];
 
         if (id) {
             play(id);
@@ -76,22 +73,21 @@
     async function searchVid(q) {
         const resDiv = document.getElementById('search-results');
         resDiv.innerHTML = "<p>...</p>";
-        for (let p of proxies) {
-            try {
-                const response = await fetch(`${p}/api/v1/search?q=${encodeURIComponent(q)}`);
-                if (!response.ok) continue;
-                const results = await response.json();
-                currentProxy = p;
-                resDiv.innerHTML = "";
-                results.forEach(v => { if (v.type === "video") renderCard(v.videoId, v.title, resDiv, true); });
-                return;
-            } catch (e) { continue; }
+        try {
+            const response = await fetch(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(q)}&filter=videos`);
+            const results = await response.json();
+            resDiv.innerHTML = "";
+            results.streams.forEach(v => {
+                let id = v.url.split("v=")[1];
+                renderCard(id, v.title, resDiv, true);
+            });
+        } catch (e) {
+            resDiv.innerHTML = "<p>Ошибка. Вставь ссылку.</p>";
         }
-        resDiv.innerHTML = "<p>Ошибка. Вставь прямую ссылку.</p>";
     }
 
     function play(id) {
-        player.src = `${currentProxy}/embed/${id}?autoplay=1&local=true`;
+        player.src = `https://www.youtube.com/embed/${id}?autoplay=1`;
     }
 
     function renderCard(id, title, container, isSearch) {
@@ -101,7 +97,7 @@
             play(id);
             if (isSearch) db.ref('tubevideos').push({ id: id, title: title });
         };
-        div.innerHTML = `<img src="${currentProxy}/vi/${id}/mqdefault.jpg">`;
+        div.innerHTML = `<img src="https://img.youtube.com/vi/${id}/mqdefault.jpg">`;
         container.appendChild(div);
     }
 </script>
