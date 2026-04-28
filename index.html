@@ -11,18 +11,19 @@
         iframe { width: 100%; height: 100%; border: none; }
         
         .shield-t { position: absolute; top: 0; left: 0; width: 100%; height: 70px; z-index: 10; }
-        .shield-b { position: absolute; bottom: 0; right: 0; width: 100%; height: 100px; z-index: 10; }
+        .shield-b { position: absolute; bottom: 0; right: 0; width: 280px; height: 100px; z-index: 10; }
 
         .search-zone { display: flex; gap: 8px; width: 100%; max-width: 850px; margin-bottom: 20px; }
         input { flex: 1; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; border-radius: 20px; outline: none; }
         button { background: #ff0000; color: white; border: none; padding: 0 20px; border-radius: 20px; cursor: pointer; font-weight: bold; }
         
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; width: 100%; max-width: 850px; margin-bottom: 20px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; width: 100%; max-width: 850px; }
         .v-card { cursor: pointer; text-align: center; background: #111; border-radius: 10px; padding: 5px; border: 1px solid #222; }
         .v-card img { width: 100%; border-radius: 8px; }
         .v-card p { font-size: 10px; color: #aaa; margin: 5px 0; height: 24px; overflow: hidden; }
         
-        h3 { align-self: flex-start; width: 100%; max-width: 850px; color: #444; font-size: 11px; margin: 10px auto; text-transform: uppercase; }
+        .s-list { width: 100%; max-width: 850px; display: flex; flex-direction: column; gap: 5px; }
+        .s-item { background: #111; padding: 10px; border-radius: 10px; border: 1px solid #222; cursor: pointer; font-size: 14px; }
     </style>
 </head>
 <body onload="init()">
@@ -33,11 +34,11 @@
     </div>
     
     <div class="search-zone">
-        <input type="text" id="query" placeholder="Танки, Рояль или ссылка...">
-        <button onclick="handleAction()">ПУСК</button>
+        <input type="text" id="query" placeholder="Что ищем? (Танки, Влад А4...)">
+        <button onclick="handleAction()">ПОИСК</button>
     </div>
 
-    <div id="results" class="grid"></div>
+    <div id="results" class="s-list"></div>
 
     <h3>История</h3>
     <div id="history" class="grid"></div>
@@ -58,7 +59,7 @@
         };
         firebase.initializeApp(config);
         db = firebase.database();
-        db.ref('tubevideos').limitToLast(5).on('value', (s) => {
+        db.ref('tubevideos').limitToLast(6).on('value', (s) => {
             const h = document.getElementById('history');
             h.innerHTML = "";
             let data = s.val();
@@ -73,19 +74,28 @@
         if (id) { play(id, "Видео"); } else { search(q); }
     }
 
-    async function search(q) {
+    function search(q) {
         const res = document.getElementById('results');
         res.innerHTML = "Ищем...";
-        try {
-            // Используем мощный прокси-шлюз, который парсит Ютуб и выдает только нужные нам данные
-            const r = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://pipedapi.kavin.rocks/search?q=' + q + '&filter=videos')}`);
-            const d = JSON.parse((await r.json()).contents);
+        const s = document.createElement('script');
+        window.ytCallback = (data) => {
             res.innerHTML = "";
-            d.streams.slice(0, 5).forEach(v => {
-                let vidId = v.url.split("v=")[1];
-                renderCard(vidId, v.title, res);
+            data[1].forEach(item => {
+                let div = document.createElement('div');
+                div.className = 's-item';
+                div.innerText = "▶ " + item[0];
+                div.onclick = () => {
+                    // Используем Invidious как "зеркало" для мгновенного получения ID без CORS
+                    fetch(`https://invidious.lunar.icu/api/v1/search?q=${encodeURIComponent(item[0])}`)
+                    .then(r => r.json()).then(d => {
+                        if (d[0]) play(d[0].videoId, d[0].title);
+                    });
+                };
+                res.appendChild(div);
             });
-        } catch (e) { res.innerHTML = "Ошибка. Вставь ссылку."; }
+        };
+        s.src = `https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(q)}&callback=ytCallback`;
+        document.body.appendChild(s);
     }
 
     function play(id, title) {
