@@ -22,20 +22,20 @@
 <body onload="init()">
     <div class="p-box"><iframe id="main-player" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe></div>
     <div class="search-zone">
-        <input type="text" id="query" placeholder="Поиск (танки, рояль...)">
-        <button onclick="searchVid()">НАЙТИ</button>
+        <input type="text" id="query" placeholder="Поиск или ссылка...">
+        <button onclick="handleAction()">ПУСК</button>
     </div>
     <div id="search-results" class="grid"></div>
-    <h3>История поиска:</h3>
+    <h3>История:</h3>
     <div id="video-grid" class="grid"></div>
 <script>
     let db;
-    let currentProxy = "https://yewtu.be";
-    const proxies = ["https://yewtu.be", "https://iv.melmac.space", "https://invidious.asir.dev", "https://invidious.no-logs.com"];
+    let currentProxy = "https://inv.tux.rs";
+    const proxies = ["https://inv.tux.rs", "https://iv.melmac.space", "https://yewtu.be"];
     const player = document.getElementById('main-player');
 
     function init() {
-        const firebaseConfig = {
+        const config = {
             apiKey: "AIzaSyCMgd0KOSCfyJ0RWk3qhpk6eMOnKPhLNbA",
             authDomain: "bubaschat.firebaseapp.com",
             databaseURL: "https://bubaschat-default-rtdb.firebaseio.com",
@@ -44,24 +44,35 @@
             messagingSenderId: "360805253305",
             appId: "1:360805253305:web:6f5ed2c212a44833e7db68"
         };
-        firebase.initializeApp(firebaseConfig);
+        firebase.initializeApp(config);
         db = firebase.database();
         db.ref('tubevideos').limitToLast(20).on('value', (s) => {
             const g = document.getElementById('video-grid');
             g.innerHTML = "";
             let data = s.val();
-            if (data) {
-                Object.values(data).reverse().forEach(v => renderCard(v.id, v.title, g, false));
-            }
+            if (data) Object.values(data).reverse().forEach(v => renderCard(v.id, v.title, g, false));
         });
     }
 
-    async function searchVid() {
+    function handleAction() {
         let q = document.getElementById('query').value;
         if (!q) return;
-        const resDiv = document.getElementById('search-results');
-        resDiv.innerHTML = "<p>Ищем...</p>";
+        let id = "";
+        if (q.includes("v=")) id = q.split("v=")[1].split("&")[0];
+        else if (q.includes("youtu.be/")) id = q.split("youtu.be/")[1].split("?")[0];
         
+        if (id) {
+            play(id);
+            db.ref('tubevideos').push({ id: id, title: "Видео по ссылке" });
+            document.getElementById('query').value = "";
+        } else {
+            searchVid(q);
+        }
+    }
+
+    async function searchVid(q) {
+        const resDiv = document.getElementById('search-results');
+        resDiv.innerHTML = "<p>...</p>";
         for (let p of proxies) {
             try {
                 const response = await fetch(`${p}/api/v1/search?q=${encodeURIComponent(q)}`);
@@ -73,16 +84,20 @@
                 return;
             } catch (e) { continue; }
         }
-        resDiv.innerHTML = "<p>Все зеркала заняты, повторите попытку позже</p>";
+        resDiv.innerHTML = "<p>Server null try paste link </p>";
+    }
+
+    function play(id) {
+        player.src = `${currentProxy}/embed/${id}?autoplay=1`;
+        window.scrollTo({top: 0, behavior: 'smooth'});
     }
 
     function renderCard(id, title, container, isSearch) {
         let div = document.createElement('div');
         div.className = 'v-card';
         div.onclick = () => {
-            player.src = `${currentProxy}/embed/${id}?autoplay=1`;
+            play(id);
             if (isSearch) db.ref('tubevideos').push({ id: id, title: title });
-            window.scrollTo({top: 0, behavior: 'smooth'});
         };
         div.innerHTML = `<img src="${currentProxy}/vi/${id}/mqdefault.jpg"><p>${title}</p>`;
         container.appendChild(div);
